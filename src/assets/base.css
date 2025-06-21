@@ -1,0 +1,11 @@
+/* -- CSS Variables for easy theme management -- */
+:root {
+  --primary-color: #e0e5ec;
+  --text-color: #3f4a5a;
+  --accent-color: #6d7efc; /* A soft blue/purple for accents */
+  --danger-color: #d9534f;
+  --success-color: #5cb85c;
+  /* The magic lies in these two shadow colors */
+  --dark-shadow: #a3b1c6;
+  --light-shadow: #ffffff;
+}

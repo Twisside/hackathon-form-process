@@ -1,0 +1,15 @@
+﻿@import "base.css";
+
+
+body {
+  font-family: 'Poppins', sans-serif; /* A font that works well with this style */
+  color: var(--text-color);
+  text-align: left;
+  background-color: #e0e5ec; /* This is the key background color for the neumorphic effect */
+  margin: 0;
+  padding: 0;
+
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
