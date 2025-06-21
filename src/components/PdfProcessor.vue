@@ -1,27 +1,60 @@
-﻿<!-- src/components/PdfProcessor.vue -->
-<script setup>
-// src/components/PdfProcessor.vue
-
-import { ref } from 'vue';
+﻿<script setup>
+import { ref, watch, onMounted } from 'vue';
 // Make sure this path is correct
 import { uploadAndProcessPdf } from '@/services/pdfService.js';
 
-// Reactive state variables
+// --- State Variables ---
 const inputFile = ref(null);
 const selectedFileName = ref('');
 const outputFileUrl = ref(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
-const additionalData = ref(''); // <-- NEW: For the textarea
+const additionalData = ref('');
 
-// Function to handle file selection from the input
+// --- Template Ref for Textarea ---
+// This will hold a direct reference to the textarea DOM element.
+const textareaRef = ref(null);
+
+
+// --- The Resizing Logic ---
+const resizeTextarea = () => {
+  const el = textareaRef.value;
+  if (!el) return;
+
+  // 1. Reset height to auto to get the correct scrollHeight.
+  el.style.height = 'auto';
+
+  // 2. Define the maximum height you want the textarea to grow to.
+  const maxHeight = 500; // in pixels
+
+  // 3. Calculate the new height, but don't exceed the max height.
+  const newHeight = Math.min(el.scrollHeight, maxHeight);
+  el.style.height = newHeight + 'px';
+
+  // 4. Show a scrollbar only if the content is taller than the max height.
+  el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+};
+
+
+// --- Vue Reactivity Hooks ---
+// Call resizeTextarea whenever the text inside changes.
+watch(additionalData, () => {
+  resizeTextarea();
+});
+
+// Call resizeTextarea once the component is mounted to set the initial size.
+onMounted(() => {
+  resizeTextarea();
+});
+
+
+// --- Component Methods ---
 const onFileSelected = (event) => {
   const file = event.target.files[0];
   if (file && file.type === 'application/pdf') {
     inputFile.value = file;
     selectedFileName.value = file.name;
     errorMessage.value = '';
-    // Don't clear the output URL on file change, so the user can see the last result
   } else {
     inputFile.value = null;
     selectedFileName.value = '';
@@ -29,29 +62,6 @@ const onFileSelected = (event) => {
   }
 };
 
-// resize textarea
-const textarea = document.getElementById('autoresizing');
-
-document.addEventListener('DOMContentLoaded', function () {
-  const textarea = document.getElementById('autoresizing');
-
-  textarea.addEventListener('input', function () {
-    this.style.height = 'auto';
-    const maxHeight = parseInt(window.getComputedStyle(this).maxHeight);
-    const newHeight = Math.min(this.scrollHeight, maxHeight);
-    this.style.height = newHeight + 'px';
-    this.style.overflowY = (this.scrollHeight > maxHeight) ? 'auto' : 'hidden';
-  });
-});
-
-// Trigger initial resize on page load
-window.addEventListener('DOMContentLoaded', function () {
-  const event = new Event('input');
-  textarea.dispatchEvent(event);
-});
-
-
-// Function to handle the form submission
 const handleProcessRequest = async () => {
   if (!inputFile.value) {
     errorMessage.value = 'No file selected.';
@@ -60,13 +70,14 @@ const handleProcessRequest = async () => {
 
   isLoading.value = true;
   errorMessage.value = '';
-  outputFileUrl.value = null;
 
   try {
-    // MODIFIED: Pass both the file and the additional data to the service
-    const processedPdfBlob = await uploadAndProcessPdf(inputFile.value, additionalData.value);
+    // If there's an old URL, revoke it to prevent memory leaks
+    if (outputFileUrl.value) {
+      URL.revokeObjectURL(outputFileUrl.value);
+    }
 
-    // Create a URL from the returned blob. This will be used by the iframe.
+    const processedPdfBlob = await uploadAndProcessPdf(inputFile.value, additionalData.value);
     outputFileUrl.value = URL.createObjectURL(processedPdfBlob);
 
   } catch (error) {
@@ -102,11 +113,12 @@ const handleProcessRequest = async () => {
           </div>
         </div>
 
-        <!-- Card 2: Text Input (Unchanged) -->
+
+        <!-- Card 2: Text Input -->
         <div class="card">
           <h2>2. Add Extra Data</h2>
           <textarea
-              id="autoresizing"
+              ref="textareaRef"
               v-model="additionalData"
               class="neumorphic-textarea"
               placeholder="Enter any additional data to send with the PDF..."
@@ -189,7 +201,7 @@ h1 {
 .processing-column {
   display: flex;
   flex-direction: column;
-  flex-basis: 40%;
+  width: 30vw;
 
   gap: 2.5rem;
 }
@@ -273,9 +285,10 @@ input[type="file"] {
 
 .neumorphic-textarea {
   border: none;
-  overflow: hidden; /* Hide scrollbars */
+  overflow: hidden; /* Start with the scrollbar hidden */
   width: calc(100% - 2rem);
-  height: 120px;
+  min-height: 50px; /* MODIFIED: Set a minimum height instead of a fixed one */
+  height: 50px;     /* Set initial height to match min-height */
   outline: none;
   border-radius: 20px;
   padding: 1rem;
@@ -283,10 +296,9 @@ input[type="file"] {
   color: var(--text-color);
   font-family: inherit;
   font-size: 1rem;
-  resize: none;
-  box-shadow:
-   3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow);
-
+  resize: none; /* Crucial: disable the user's manual resize handle */
+  box-shadow: 3px 3px 6px var(--dark-shadow), -3px -3px 6px var(--light-shadow);
+  transition: height 0.2s ease; /* Add a smooth transition for the height change */
 }
 
 
@@ -354,4 +366,26 @@ input[type="file"] {
   color: var(--text-color);
   opacity: 0.7;
 }
+
+
+/* --- Step 1: Main Breakpoint for Tablet & Mobile --- */
+@media (max-width: 1300px) {
+  .content-wrapper {
+    /* Change the layout from a row to a column */
+    flex-direction: column;
+  }
+
+  .processing-column {
+    /* Allow the column to take the full width */
+    width: 100%;
+  }
+
+  .results-card {
+    /* Adjust height to be reasonable for a vertical layout */
+    height: 60vh;
+  }
+}
+
+
+
 </style>
