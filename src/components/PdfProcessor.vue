@@ -1,70 +1,41 @@
 ﻿<script setup>
-import { ref, watch, onMounted } from 'vue';
-// Make sure this path is correct
+import { ref } from 'vue';
 import { uploadAndProcessPdf } from '@/services/pdfService.js';
 
 // --- State Variables ---
-const inputFile = ref(null);
-const selectedFileName = ref('');
+// NEW: Manually define the list of available PDF templates.
+// The `path` is the public path to the file.
+// The `path` is the public path to the file.
+const templates = ref([
+  { id: 'cpf17', name: 'CPF17', path: '/templates/cpf17.pdf' },
+  // NOTE: I've given the long filename a clean name and path.
+  // Please rename the actual file to 'formula-achitare-venit.pdf' for best results.
+  { id: 'formula-achitare-venit', name: 'Formula Achitare Venit', path: '/templates/formula-achitare-venit.pdf' },
+  { id: 'ials21', name: 'IALS21', path: '/templates/ials21.pdf' },
+  { id: 'inr14', name: 'INR14', path: '/templates/inr14.pdf' },
+  { id: 'ipc21', name: 'IPC21', path: '/templates/ipc21.pdf' },
+  { id: 'irm19', name: 'IRM19', path: '/templates/irm19.pdf' },
+  { id: 'isapti17', name: 'ISAPTI17', path: '/templates/isapti17.pdf' },
+  { id: 'iu17', name: 'IU17', path: '/templates/iu17.pdf' },
+  { id: 'parc-it', name: 'Parc IT', path: '/templates/parc-it.pdf' },
+  { id: 'rsf1', name: 'RSF1', path: '/templates/rsf1.pdf' },
+  { id: 'tl13', name: 'TL13', path: '/templates/tl13.pdf' },
+  { id: 'ven12', name: 'VEN12', path: '/templates/ven12.pdf' },
+]);
+
+const selectedTemplatePath = ref(''); // MODIFIED: State to hold the PATH of the selected template.
 const outputFileUrl = ref(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const additionalData = ref('');
 
-// --- Template Ref for Textarea ---
-// This will hold a direct reference to the textarea DOM element.
-const textareaRef = ref(null);
-
-
-// --- The Resizing Logic ---
-const resizeTextarea = () => {
-  const el = textareaRef.value;
-  if (!el) return;
-
-  // 1. Reset height to auto to get the correct scrollHeight.
-  el.style.height = 'auto';
-
-  // 2. Define the maximum height you want the textarea to grow to.
-  const maxHeight = 500; // in pixels
-
-  // 3. Calculate the new height, but don't exceed the max height.
-  const newHeight = Math.min(el.scrollHeight, maxHeight);
-  el.style.height = newHeight + 'px';
-
-  // 4. Show a scrollbar only if the content is taller than the max height.
-  el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
-};
-
-
-// --- Vue Reactivity Hooks ---
-// Call resizeTextarea whenever the text inside changes.
-watch(additionalData, () => {
-  resizeTextarea();
-});
-
-// Call resizeTextarea once the component is mounted to set the initial size.
-onMounted(() => {
-  resizeTextarea();
-});
-
+// REMOVED: The onMounted and watch logic for templates is no longer needed.
 
 // --- Component Methods ---
-const onFileSelected = (event) => {
-  const file = event.target.files[0];
-  if (file && file.type === 'application/pdf') {
-    inputFile.value = file;
-    selectedFileName.value = file.name;
-    errorMessage.value = '';
-  } else {
-    inputFile.value = null;
-    selectedFileName.value = '';
-    errorMessage.value = 'Please select a valid PDF file.';
-  }
-};
-
 const handleProcessRequest = async () => {
-  if (!inputFile.value) {
-    errorMessage.value = 'No file selected.';
+  // MODIFIED: Check if a template path is selected
+  if (!selectedTemplatePath.value) {
+    errorMessage.value = 'Please select a format template.';
     return;
   }
 
@@ -72,12 +43,19 @@ const handleProcessRequest = async () => {
   errorMessage.value = '';
 
   try {
-    // If there's an old URL, revoke it to prevent memory leaks
+    // NEW: Fetch the selected PDF template from the public folder.
+    const response = await fetch(selectedTemplatePath.value);
+    if (!response.ok) {
+      throw new Error(`Could not load template file: ${response.statusText}`);
+    }
+    const pdfBlob = await response.blob(); // Convert the response to a Blob
+
     if (outputFileUrl.value) {
       URL.revokeObjectURL(outputFileUrl.value);
     }
 
-    const processedPdfBlob = await uploadAndProcessPdf(inputFile.value, additionalData.value);
+    // MODIFIED: Pass the fetched PDF Blob and the additional data to the service.
+    const processedPdfBlob = await uploadAndProcessPdf(pdfBlob, additionalData.value);
     outputFileUrl.value = URL.createObjectURL(processedPdfBlob);
 
   } catch (error) {
@@ -98,19 +76,16 @@ const handleProcessRequest = async () => {
       <!-- Left Column: All Inputs -->
       <div class="processing-column">
 
-        <!-- Card 1: File Input (Unchanged) -->
+        <!-- Card 1: MODIFIED for PDF Template Selection -->
         <div class="card">
-          <h2>1. Select PDF File</h2>
-          <div class="input-group">
-            <label for="pdf-upload" class="file-label neumorphic-button">Choose PDF...</label>
-            <input
-                id="pdf-upload"
-                type="file"
-                accept=".pdf"
-                @change="onFileSelected"
-            />
-            <p v-if="selectedFileName" class="file-name">{{ selectedFileName }}</p>
-          </div>
+          <h2>1. Select Document Format</h2>
+          <select v-model="selectedTemplatePath" class="neumorphic-select">
+            <option disabled value="">Please select a format...</option>
+            <!-- MODIFIED: The value is now the template's path -->
+            <option v-for="template in templates" :key="template.id" :value="template.path">
+              {{ template.name }}
+            </option>
+          </select>
         </div>
 
 
@@ -127,7 +102,7 @@ const handleProcessRequest = async () => {
 
         <!-- MODIFIED: Card 3 is now just the action area -->
         <div class="action-area">
-          <button @click="handleProcessRequest" :disabled="!inputFile || isLoading" class="neumorphic-button">
+          <button @click="handleProcessRequest" :disabled="!selectedTemplatePath || isLoading" class="neumorphic-button">
             {{ isLoading ? 'Processing...' : 'Process PDF' }}
           </button>
           <div class="status-text-wrapper">
@@ -231,6 +206,34 @@ h2 {
 .card h2 {
   margin-bottom: 1.5rem;
 
+}
+
+.neumorphic-select {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 1rem;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color);
+  background: var(--primary-color);
+  box-shadow: 3px 3px 8px var(--dark-shadow),-3px -3px 8px var(--light-shadow);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f4a5a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.2em;
+  transition: box-shadow 0.2s ease-in-out; /* Added for smooth effect */
+}
+
+/* NEW: Add a subtle effect when the user interacts with the dropdown */
+.neumorphic-select:hover,
+.neumorphic-select:focus {
+  box-shadow: inset 2px 2px 5px var(--dark-shadow), inset -2px -2px 5px var(--light-shadow);
 }
 
 /* --- Input & Action Elements --- */

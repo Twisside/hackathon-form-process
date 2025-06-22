@@ -1,34 +1,48 @@
 ﻿// server.js
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
 
 const app = express();
 const port = 3001;
 
 app.use(cors());
 
+// MODIFIED: Configure multer to store the uploaded file in memory.
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// When using multer, text fields are available in `req.body`
-app.post('/process-pdf', upload.single('pdf'), (req, res) => {
-    console.log('Received a file to process.');
+// MODIFIED: Use the multer middleware to handle a single file upload
+// The key 'pdfTemplate' must match what we used in the service.
+app.post('/process-pdf', upload.single('pdfTemplate'), (req, res) => {
+    console.log('Received a PDF template to process.');
 
-    if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded.' });
+    // The uploaded file is in req.file, and text fields are in req.body
+    const { additionalData } = req.body;
+    const pdfFile = req.file;
+
+    if (!pdfFile) {
+        return res.status(400).json({ message: 'No PDF template file uploaded.' });
     }
 
-    // --- NEW: Access and log the additional text data ---
-    const additionalData = req.body.data;
+    // --- Log received data ---
+    console.log('--- PDF Template Received ---');
+    console.log('Filename:', pdfFile.originalname);
+    console.log('Size:', pdfFile.size, 'bytes');
     console.log('--- Additional Data Received ---');
-    console.log(additionalData || '(No additional data provided)');
+    console.log(additionalData || '(No additional data)');
     console.log('---------------------------------');
 
-    const processedFileBuffer = req.file.buffer;
+    // --- MOCK PROCESSING ---
+    // In a real app, you would use a library like 'pdf-lib' to open
+    // `pdfFile.buffer`, fill in fields using `additionalData`, and then save it.
+    // For this demo, we will simply send the exact same PDF template back.
+    const processedFileBuffer = pdfFile.buffer;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=processed.pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=processed_document.pdf');
+
+    // Send the file buffer back as the response
     res.send(processedFileBuffer);
 });
 

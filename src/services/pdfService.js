@@ -3,15 +3,18 @@
 const API_ENDPOINT = 'http://localhost:3001/process-pdf';
 
 /**
- * Uploads a PDF file and additional data to the processing service.
- * @param {File} pdfFile The PDF file to be processed.
- * @param {string} additionalData The text data to send with the file.
- * @returns {Promise<Blob>} A promise that resolves with the processed PDF file as a Blob.
+ * Sends a PDF template file and additional data to the processing service.
+ * @param {Blob} pdfBlob The PDF template file as a Blob.
+ * @param {string} additionalData The text data from the textarea.
+ * @returns {Promise<Blob>} A promise that resolves with the processed PDF file.
  */
-export async function uploadAndProcessPdf(pdfFile, additionalData) { // <-- MODIFIED
+export async function uploadAndProcessPdf(pdfBlob, additionalData) {
     const formData = new FormData();
-    formData.append('pdf', pdfFile);
-    formData.append('data', additionalData); // <-- NEW: Append the text data
+
+    // MODIFIED: Append the blob as a file.
+    // The third argument is the filename the server will see.
+    formData.append('pdfTemplate', pdfBlob, 'template.pdf');
+    formData.append('additionalData', additionalData);
 
     try {
         const response = await fetch(API_ENDPOINT, {
